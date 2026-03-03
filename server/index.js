@@ -86,7 +86,7 @@ const clientBuildPath = path.join(__dirname, '../client/dist');
 if (fs.existsSync(clientBuildPath)) {
   app.use(express.static(clientBuildPath));
   // Catch-all route for SPA
-  app.get('*', (req, res) => {
+  app.get(/(.*)/, (req, res) => {
     if (!req.path.startsWith('/api')) {
       res.sendFile(path.join(clientBuildPath, 'index.html'));
     }
