@@ -49,7 +49,19 @@
 > **提示（Windows/Linux 快捷启动）**: 
 > 根目录下提供了 `start.bat` (Windows) 和 `start.sh` (Mac/Linux) 脚本，双击或运行即可自动启动前后端两个服务，并支持自定义端口。
 
-### 方式二：使用 Docker 一键部署 (推荐用于生产)
+### 方式二：docker部署
+
+```bash
+docker run -di \
+  -p 3456:3001 \
+  -v ./projects:/app/projects \
+  --restart always \
+  --name whiteboard \
+  heydaoyi/my-whiteboard:v1.0
+```
+
+
+### 方式三：自己构建和部署docker
 
 项目内包含了优化过的多阶段 `Dockerfile`，会将前端静态页面打包并由 Node.js 后端统一代理提供服务，单端口即可运行。
 
