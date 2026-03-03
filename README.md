@@ -106,4 +106,4 @@ docker run -di \
 
 ## 📄 许可证
 
-ISC License
+MIT license
