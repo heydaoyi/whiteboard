@@ -9,9 +9,23 @@ const API_PORT = import.meta.env.VITE_API_PORT || '3001';
 const API_BASE =
   import.meta.env.VITE_API_URL ||
   `${window.location.protocol}//${window.location.hostname}:${API_PORT}/api`;
+const DEFAULT_CAMERA = { x: 0, y: 0, zoom: 1 };
 const DEFAULT_COLOR_BY_THEME = {
   light: '#000000',
   dark: '#ffffff'
+};
+
+const normalizeCamera = (camera) => {
+  if (!camera || typeof camera !== 'object') {
+    return { ...DEFAULT_CAMERA };
+  }
+
+  const x = Number.isFinite(camera.x) ? camera.x : DEFAULT_CAMERA.x;
+  const y = Number.isFinite(camera.y) ? camera.y : DEFAULT_CAMERA.y;
+  const rawZoom = Number.isFinite(camera.zoom) ? camera.zoom : DEFAULT_CAMERA.zoom;
+  const zoom = Math.min(Math.max(rawZoom, 0.1), 10);
+
+  return { x, y, zoom };
 };
 
 function App() {
@@ -32,7 +46,7 @@ function App() {
     tool: 'pen', // pencil, pen, ink, eraser
     color: DEFAULT_COLOR_BY_THEME[theme],
     thickness: 5,
-    camera: { x: 0, y: 0, zoom: 1 }
+    camera: { ...DEFAULT_CAMERA }
   });
 
   // Load project list
@@ -76,7 +90,7 @@ function App() {
     const newId = `project_${Date.now()}`;
     setCurrentProject({ id: newId, name: '未命名项目' });
     setElements([]);
-    setAppState(prev => ({ ...prev, camera: { x: 0, y: 0, zoom: 1 } }));
+    setAppState(prev => ({ ...prev, camera: { ...DEFAULT_CAMERA } }));
     setShowProjectList(false);
   };
 
@@ -87,7 +101,7 @@ function App() {
       setElements(res.data.elements || []);
       setAppState(prev => ({
         ...prev,
-        camera: res.data.camera || { x: 0, y: 0, zoom: 1 }
+        camera: normalizeCamera(res.data.camera)
       }));
       setShowProjectList(false);
     } catch (err) {
@@ -132,6 +146,47 @@ function App() {
     downloadAnchorNode.remove();
   };
 
+  const handleImport = (file) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      try {
+        const fileContent = reader.result;
+        if (typeof fileContent !== 'string') {
+          throw new Error('文件读取失败');
+        }
+
+        const parsedData = JSON.parse(fileContent);
+        const importedElements = Array.isArray(parsedData) ? parsedData : parsedData?.elements;
+        if (!Array.isArray(importedElements)) {
+          throw new Error('JSON 格式不正确，缺少 elements 数组');
+        }
+
+        const importedCamera = Array.isArray(parsedData)
+          ? { ...DEFAULT_CAMERA }
+          : normalizeCamera(parsedData.camera);
+
+        setElements(importedElements);
+        setAppState(prev => ({
+          ...prev,
+          camera: importedCamera
+        }));
+        setCurrentProject(null);
+        setShowProjectList(false);
+        alert('导入成功！');
+      } catch (err) {
+        console.error('Failed to import file', err);
+        alert('导入失败：请确认是有效的白板 JSON 文件');
+      }
+    };
+
+    reader.onerror = () => {
+      alert('导入失败：文件读取错误');
+    };
+
+    reader.readAsText(file);
+  };
+
   return (
     <div className={`app-container ${theme}`}>
       <Toolbar 
@@ -139,6 +194,7 @@ function App() {
         setAppState={setAppState} 
         onSave={handleSaveProject}
         onDownload={handleDownload}
+        onImport={handleImport}
         onShowProjects={() => {
           fetchProjects();
           setShowProjectList(true);

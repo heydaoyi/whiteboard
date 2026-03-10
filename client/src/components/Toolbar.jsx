@@ -1,17 +1,19 @@
-import React from 'react';
-import { Pencil, PenTool, Droplet, Eraser, Save, Download, FolderOpen, Hand, Moon, Sun } from 'lucide-react';
+import React, { useRef } from 'react';
+import { Pencil, PenTool, Droplet, Eraser, Save, Download, Upload, FolderOpen, Hand, Moon, Sun } from 'lucide-react';
 
 const Toolbar = ({
   appState,
   setAppState,
   onSave,
   onDownload,
+  onImport,
   onShowProjects,
   currentProjectName,
   theme,
   onToggleTheme
 }) => {
   const { tool, color, thickness } = appState;
+  const fileInputRef = useRef(null);
 
   const handleToolChange = (newTool) => {
     setAppState(prev => ({ ...prev, tool: newTool }));
@@ -23,6 +25,17 @@ const Toolbar = ({
 
   const handleThicknessChange = (e) => {
     setAppState(prev => ({ ...prev, thickness: parseInt(e.target.value) }));
+  };
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleImportChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    onImport(file);
+    e.target.value = '';
   };
 
   return (
@@ -78,9 +91,19 @@ const Toolbar = ({
       <button onClick={onDownload} title="Download JSON">
         <Download size={20} />
       </button>
+      <button onClick={handleImportClick} title="Import JSON">
+        <Upload size={20} />
+      </button>
       <button onClick={onToggleTheme} title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>
         {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
       </button>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="application/json,.json"
+        onChange={handleImportChange}
+        style={{ display: 'none' }}
+      />
     </div>
   );
 };
