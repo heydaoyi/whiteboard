@@ -57,7 +57,7 @@ docker run -di \
   -v ./projects:/app/projects \
   --restart always \
   --name whiteboard \
-  heydaoyi/my-whiteboard:v1.0
+  heydaoyi/my-whiteboard:latest
 ```
 在浏览器中打开 http://localhost:3456 即可使用。
 
