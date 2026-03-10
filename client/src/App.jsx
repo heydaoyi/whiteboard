@@ -5,18 +5,32 @@ import ProjectList from './components/ProjectList';
 import axios from 'axios';
 import './App.css';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+const API_PORT = import.meta.env.VITE_API_PORT || '3001';
+const API_BASE =
+  import.meta.env.VITE_API_URL ||
+  `${window.location.protocol}//${window.location.hostname}:${API_PORT}/api`;
+const DEFAULT_COLOR_BY_THEME = {
+  light: '#000000',
+  dark: '#ffffff'
+};
 
 function App() {
   const [projects, setProjects] = useState([]);
   const [currentProject, setCurrentProject] = useState(null);
   const [showProjectList, setShowProjectList] = useState(true);
+  const [theme, setTheme] = useState(() => {
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'light' || savedTheme === 'dark') {
+      return savedTheme;
+    }
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  });
   
   // Canvas State
   const [elements, setElements] = useState([]);
   const [appState, setAppState] = useState({
     tool: 'pen', // pencil, pen, ink, eraser
-    color: '#000000',
+    color: DEFAULT_COLOR_BY_THEME[theme],
     thickness: 5,
     camera: { x: 0, y: 0, zoom: 1 }
   });
@@ -34,6 +48,29 @@ function App() {
   useEffect(() => {
     fetchProjects();
   }, []);
+
+  useEffect(() => {
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  useEffect(() => {
+    const previousTheme = theme === 'dark' ? 'light' : 'dark';
+    const previousDefaultColor = DEFAULT_COLOR_BY_THEME[previousTheme];
+    const nextDefaultColor = DEFAULT_COLOR_BY_THEME[theme];
+
+    setAppState(prev => {
+      if (prev.color !== previousDefaultColor) {
+        return prev;
+      }
+      return { ...prev, color: nextDefaultColor };
+    });
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(prev => (prev === 'light' ? 'dark' : 'light'));
+  };
+
+  const canvasBackground = theme === 'dark' ? '#111827' : '#f5f5f5';
 
   const handleCreateProject = () => {
     const newId = `project_${Date.now()}`;
@@ -96,7 +133,7 @@ function App() {
   };
 
   return (
-    <div className="app-container">
+    <div className={`app-container ${theme}`}>
       <Toolbar 
         appState={appState} 
         setAppState={setAppState} 
@@ -107,12 +144,15 @@ function App() {
           setShowProjectList(true);
         }}
         currentProjectName={currentProject?.name}
+        theme={theme}
+        onToggleTheme={toggleTheme}
       />
       <Whiteboard 
         elements={elements} 
         setElements={setElements} 
         appState={appState} 
         setAppState={setAppState} 
+        canvasBackground={canvasBackground}
       />
       
       {showProjectList && (

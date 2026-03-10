@@ -18,7 +18,16 @@ const getSvgPathFromStroke = (stroke) => {
   return d.join(' ');
 };
 
-const Whiteboard = ({ elements, setElements, appState, setAppState }) => {
+const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+
+const getTouchDistance = (p1, p2) => Math.hypot(p1.x - p2.x, p1.y - p2.y);
+
+const getTouchCenter = (p1, p2) => ({
+  x: (p1.x + p2.x) / 2,
+  y: (p1.y + p2.y) / 2
+});
+
+const Whiteboard = ({ elements, setElements, appState, setAppState, canvasBackground }) => {
   const canvasRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [currentPath, setCurrentPath] = useState(null);
@@ -26,6 +35,10 @@ const Whiteboard = ({ elements, setElements, appState, setAppState }) => {
   // For panning/zooming
   const [isPanning, setIsPanning] = useState(false);
   const [lastPanPoint, setLastPanPoint] = useState({ x: 0, y: 0 });
+  const drawingPointerIdRef = useRef(null);
+  const panPointerIdRef = useRef(null);
+  const activeTouchPointersRef = useRef(new Map());
+  const pinchStateRef = useRef(null);
 
   // Get options for perfect-freehand based on tool
   const getToolOptions = (tool, thickness) => {
@@ -59,29 +72,98 @@ const Whiteboard = ({ elements, setElements, appState, setAppState }) => {
     };
   };
 
+  const finishCurrentPath = useCallback(() => {
+    if (currentPath && currentPath.points.length > 1) {
+      setElements(prev => [...prev, currentPath]);
+    }
+    setCurrentPath(null);
+    setIsDrawing(false);
+    drawingPointerIdRef.current = null;
+  }, [currentPath, setElements]);
+
+  const startPinch = useCallback((touches) => {
+    const [p1, p2] = touches;
+    const center = getTouchCenter(p1, p2);
+    const distance = Math.max(getTouchDistance(p1, p2), 1);
+    const { camera } = appState;
+
+    pinchStateRef.current = {
+      startDistance: distance,
+      startZoom: camera.zoom,
+      worldAnchor: {
+        x: (center.x - camera.x) / camera.zoom,
+        y: (center.y - camera.y) / camera.zoom
+      }
+    };
+  }, [appState]);
+
   const handlePointerDown = (e) => {
-    if (appState.tool === 'hand' || (e.pointerType === 'touch' && !e.isPrimary)) {
+    if (e.pointerType === 'touch') {
+      e.preventDefault();
+      activeTouchPointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+      if (activeTouchPointersRef.current.size >= 2) {
+        if (isDrawing) {
+          finishCurrentPath();
+        }
+        setIsPanning(false);
+        panPointerIdRef.current = null;
+        startPinch(Array.from(activeTouchPointersRef.current.values()).slice(0, 2));
+        return;
+      }
+    }
+
+    if (appState.tool === 'hand') {
       setIsPanning(true);
       setLastPanPoint({ x: e.clientX, y: e.clientY });
+      panPointerIdRef.current = e.pointerId;
       return;
     }
 
     if (e.button !== 0 && e.pointerType === 'mouse') return; // Only left click
 
-    e.target.setPointerCapture(e.pointerId);
+    if (e.pointerType !== 'touch') {
+      e.target.setPointerCapture(e.pointerId);
+    }
     setIsDrawing(true);
+    drawingPointerIdRef.current = e.pointerId;
     
     const point = getCanvasPoint(e);
     setCurrentPath({
       tool: appState.tool,
-      color: appState.tool === 'eraser' ? '#f5f5f5' : appState.color, // Match background for eraser
+      color: appState.tool === 'eraser' ? canvasBackground : appState.color, // Match background for eraser
       thickness: appState.thickness,
       points: [[point.x, point.y, point.pressure]]
     });
   };
 
   const handlePointerMove = (e) => {
-    if (isPanning) {
+    if (e.pointerType === 'touch') {
+      if (!activeTouchPointersRef.current.has(e.pointerId)) return;
+      activeTouchPointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+      if (activeTouchPointersRef.current.size >= 2 && pinchStateRef.current) {
+        const touches = Array.from(activeTouchPointersRef.current.values()).slice(0, 2);
+        const [p1, p2] = touches;
+        const center = getTouchCenter(p1, p2);
+        const distance = Math.max(getTouchDistance(p1, p2), 1);
+        const pinchState = pinchStateRef.current;
+        const scale = distance / pinchState.startDistance;
+        const newZoom = clamp(pinchState.startZoom * scale, 0.1, 10);
+
+        setAppState(prev => ({
+          ...prev,
+          camera: {
+            x: center.x - pinchState.worldAnchor.x * newZoom,
+            y: center.y - pinchState.worldAnchor.y * newZoom,
+            zoom: newZoom
+          }
+        }));
+        return;
+      }
+    }
+
+    if (isPanning && e.pointerId === panPointerIdRef.current) {
       const dx = e.clientX - lastPanPoint.x;
       const dy = e.clientY - lastPanPoint.y;
       setAppState(prev => ({
@@ -92,6 +174,7 @@ const Whiteboard = ({ elements, setElements, appState, setAppState }) => {
       return;
     }
 
+    if (drawingPointerIdRef.current !== e.pointerId) return;
     if (!isDrawing || !currentPath) return;
 
     const point = getCanvasPoint(e);
@@ -102,19 +185,25 @@ const Whiteboard = ({ elements, setElements, appState, setAppState }) => {
   };
 
   const handlePointerUp = (e) => {
-    if (isPanning) {
+    if (e.pointerType === 'touch') {
+      activeTouchPointersRef.current.delete(e.pointerId);
+      if (activeTouchPointersRef.current.size < 2) {
+        pinchStateRef.current = null;
+      }
+    }
+
+    if (isPanning && e.pointerId === panPointerIdRef.current) {
       setIsPanning(false);
+      panPointerIdRef.current = null;
       return;
     }
 
-    if (!isDrawing) return;
-    setIsDrawing(false);
-    e.target.releasePointerCapture(e.pointerId);
-
-    if (currentPath && currentPath.points.length > 1) {
-      setElements(prev => [...prev, currentPath]);
+    if (drawingPointerIdRef.current !== e.pointerId || !isDrawing) return;
+    if (e.pointerType !== 'touch' && e.target.hasPointerCapture?.(e.pointerId)) {
+      e.target.releasePointerCapture(e.pointerId);
     }
-    setCurrentPath(null);
+
+    finishCurrentPath();
   };
 
   // Handle Wheel for Zooming
@@ -124,7 +213,7 @@ const Whiteboard = ({ elements, setElements, appState, setAppState }) => {
       // Zoom
       const zoomSensitivity = 0.001;
       const delta = -e.deltaY * zoomSensitivity;
-      const newZoom = Math.min(Math.max(appState.camera.zoom + delta, 0.1), 10);
+      const newZoom = clamp(appState.camera.zoom + delta, 0.1, 10);
       
       // Zoom towards mouse pointer
       const mouseX = e.clientX;
@@ -160,6 +249,15 @@ const Whiteboard = ({ elements, setElements, appState, setAppState }) => {
       return () => canvas.removeEventListener('wheel', handleWheel);
     }
   }, [handleWheel]);
+
+  useEffect(() => {
+    return () => {
+      activeTouchPointersRef.current.clear();
+      pinchStateRef.current = null;
+      panPointerIdRef.current = null;
+      drawingPointerIdRef.current = null;
+    };
+  }, []);
 
   // Render Loop
   useEffect(() => {

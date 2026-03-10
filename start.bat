@@ -20,14 +20,16 @@ start "Whiteboard Backend" cmd /k "node index.js"
 echo.
 echo Starting Frontend on port %FRONTEND_PORT%...
 cd ../client
-set VITE_API_URL=http://localhost:%BACKEND_PORT%/api
-start "Whiteboard Frontend" cmd /k "npm run dev -- --port %FRONTEND_PORT%"
+set VITE_API_PORT=%BACKEND_PORT%
+start "Whiteboard Frontend" cmd /k "npm run dev -- --host 0.0.0.0 --port %FRONTEND_PORT%"
 
 cd ..
 
 echo.
 echo Both services are starting in new command windows!
 echo Frontend will be accessible at: http://localhost:%FRONTEND_PORT%
+echo Frontend LAN access: http://<your-lan-ip>:%FRONTEND_PORT%
 echo Backend API is running at: http://localhost:%BACKEND_PORT%
+echo Backend LAN access: http://<your-lan-ip>:%BACKEND_PORT%
 echo.
 pause

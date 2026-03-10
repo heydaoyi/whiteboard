@@ -1,7 +1,16 @@
 import React from 'react';
-import { Pencil, PenTool, Droplet, Eraser, Save, Download, FolderOpen, Hand } from 'lucide-react';
+import { Pencil, PenTool, Droplet, Eraser, Save, Download, FolderOpen, Hand, Moon, Sun } from 'lucide-react';
 
-const Toolbar = ({ appState, setAppState, onSave, onDownload, onShowProjects, currentProjectName }) => {
+const Toolbar = ({
+  appState,
+  setAppState,
+  onSave,
+  onDownload,
+  onShowProjects,
+  currentProjectName,
+  theme,
+  onToggleTheme
+}) => {
   const { tool, color, thickness } = appState;
 
   const handleToolChange = (newTool) => {
@@ -22,7 +31,7 @@ const Toolbar = ({ appState, setAppState, onSave, onDownload, onShowProjects, cu
         <FolderOpen size={20} />
       </button>
       {currentProjectName && (
-        <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#555', padding: '0 8px', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={currentProjectName}>
+        <span className="project-name" title={currentProjectName}>
           {currentProjectName}
         </span>
       )}
@@ -68,6 +77,9 @@ const Toolbar = ({ appState, setAppState, onSave, onDownload, onShowProjects, cu
       </button>
       <button onClick={onDownload} title="Download JSON">
         <Download size={20} />
+      </button>
+      <button onClick={onToggleTheme} title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>
+        {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
       </button>
     </div>
   );

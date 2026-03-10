@@ -7,7 +7,7 @@ const ProjectList = ({ projects, onCreate, onLoad, onClose }) => {
       <div className="project-list">
         <h2>
           Projects
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+          <button onClick={onClose} className="icon-button">
             <X size={24} />
           </button>
         </h2>
@@ -18,7 +18,7 @@ const ProjectList = ({ projects, onCreate, onLoad, onClose }) => {
         
         <div className="projects-container">
           {projects.length === 0 ? (
-            <p style={{ textAlign: 'center', color: '#666' }}>No projects found.</p>
+            <p className="empty-projects">No projects found.</p>
           ) : (
             projects.map(proj => (
               <div 
@@ -27,7 +27,7 @@ const ProjectList = ({ projects, onCreate, onLoad, onClose }) => {
                 onClick={() => onLoad(proj.id)}
               >
                 <strong>{proj.name}</strong>
-                <div style={{ fontSize: '12px', color: '#888', marginTop: '4px' }}>
+                <div className="project-updated-at">
                   Updated: {new Date(proj.updatedAt).toLocaleString()}
                 </div>
               </div>

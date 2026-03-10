@@ -59,7 +59,7 @@ docker run -di \
   --name whiteboard \
   heydaoyi/my-whiteboard:v1.0
 ```
-
+在浏览器中打开 http://localhost:3456 即可使用。
 
 ### 方式三：自己构建和部署docker
 
